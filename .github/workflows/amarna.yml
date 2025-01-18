@@ -1,5 +1,7 @@
 name: Amarna Analysis
-on: [push]
+on: 
+   push:
+   pull_request:
 jobs:
   analyze:
     runs-on: ubuntu-latest
