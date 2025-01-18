@@ -40,29 +40,47 @@ jobs:
       - name: Install Dojo Engine
         run: |
           curl -L https://install.dojoengine.org | bash
+          source $HOME/.bashrc
           echo "$HOME/.dojo/bin" >> $GITHUB_PATH
+          export PATH="$HOME/.dojo/bin:$PATH"
 
-      # Step 6: Install Scarb
+      # Step 6: Verify Dojo installation
+      - name: Verify Dojo installation
+        run: |
+          echo "Current PATH: $PATH"
+          ls -la $HOME/.dojo/bin || echo "Dojo bin directory not found"
+          which sozo || echo "sozo not found"
+          which katana || echo "katana not found"
+
+      # Step 7: Install Scarb
       - name: Install Scarb
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://docs.swmansion.com/scarb/install.sh | sh
           echo "$HOME/.scarb/bin" >> $GITHUB_PATH
+          export PATH="$HOME/.scarb/bin:$PATH"
 
-      # Step 7: Build with Sozo
+      # Step 8: Build with Sozo
       - name: Build with Sozo
-        run: sozo build
+        run: |
+          export PATH="$HOME/.dojo/bin:$PATH"
+          which sozo
+          sozo --version
+          sozo build
 
-      # Step 8: Start Katana devnet in the background
+      # Step 9: Start Katana devnet in the background
       - name: Start Katana Devnet
         run: |
+          export PATH="$HOME/.dojo/bin:$PATH"
           nohup katana --dev --dev.no-fee > katana.log 2>&1 &
           sleep 10  # Wait for Katana to start
 
-      # Step 9: Inspect using Sozo
+      # Step 10: Inspect using Sozo
       - name: Inspect with Sozo
-        run: sozo inspect
+        run: |
+          export PATH="$HOME/.dojo/bin:$PATH"
+          sozo inspect
 
-      # Step 10: Upload Katana logs
+      # Step 11: Upload Katana logs
       - name: Upload Katana Logs
         if: always()
         uses: actions/upload-artifact@v3
