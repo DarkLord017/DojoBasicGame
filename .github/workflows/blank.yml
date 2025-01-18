@@ -1,93 +1,16 @@
 name: CI
+
 on:
   push:
-    branches:
-      - main
   pull_request:
-    branches:
-      - main
-  workflow_dispatch:
 
 jobs:
-  build:
+  sozo-test:
     runs-on: ubuntu-latest
     steps:
-      # Step 1: Checkout repository
       - uses: actions/checkout@v3
-
-      # Step 2: Install Rust using actions-rs
-      - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          profile: minimal
-          override: true
-
-      # Step 3: Install Dojo directly from GitHub releases
-      - name: Install Dojo
-        run: |
-          # Create directories
-          mkdir -p $HOME/.dojo/bin
-          cd $HOME/.dojo/bin
-          
-          # Download latest sozo and katana binaries
-          echo "Downloading Dojo binaries..."
-          curl -L https://github.com/dojoengine/dojo/releases/download/v0.5.0/sozo_0_5_0_linux_amd64.tar.gz -o sozo.tar.gz
-          curl -L https://github.com/dojoengine/dojo/releases/download/v0.5.0/katana_0_5_0_linux_amd64.tar.gz -o katana.tar.gz
-          
-          # Extract binaries
-          tar -xzf sozo.tar.gz
-          tar -xzf katana.tar.gz
-          
-          # Make binaries executable
-          chmod +x sozo katana
-          
-          # Verify binaries exist and are executable
-          echo "Verifying binaries..."
-          ls -la sozo katana
-          
-          # Add to PATH
-          export PATH="$HOME/.dojo/bin:$PATH"
-          echo "PATH is now: $PATH"
-          
-          # Test binaries
-          ./sozo --version
-          ./katana --version
-
-      # Step 4: Install Scarb
-      - name: Install Scarb
-        run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://docs.swmansion.com/scarb/install.sh -o install-scarb.sh
-          chmod +x install-scarb.sh
-          ./install-scarb.sh
-          export PATH="$HOME/.scarb/bin:$PATH"
-
-      # Step 5: Build with Sozo
-      - name: Build with Sozo
-        run: |
-          cd $GITHUB_WORKSPACE
-          export PATH="$HOME/.dojo/bin:$PATH"
-          sozo build
-
-      # Step 6: Start Katana devnet
-      - name: Start Katana Devnet
-        run: |
-          export PATH="$HOME/.dojo/bin:$PATH"
-          katana --dev --dev.no-fee > katana.log 2>&1 &
-          sleep 10  # Wait for Katana to start
-
-      # Step 7: Inspect with Sozo
-      - name: Inspect with Sozo
-        run: |
-          export PATH="$HOME/.dojo/bin:$PATH"
-          sozo inspect
-
-      # Step 8: Upload logs
-      - name: Upload logs
-        if: always()
-        uses: actions/upload-artifact@v3
-        with:
-          name: logs
-          path: |
-            katana.log
-            $HOME/.dojo/bin/*.log
+      - run: curl -L https://install.dojoengine.org | bash
+      - run: /home/runner/.config/.dojo/bin/dojoup
+      - run: |
+          /home/runner/.config/.dojo/bin/sozo build
+          /home/runner/.config/.dojo/bin/sozo test
