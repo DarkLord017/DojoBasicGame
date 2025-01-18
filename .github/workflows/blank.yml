@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Checkout the repository
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Step 2: Install Dojo Engine
+      - name: Install Dojo Engine
+        run: curl -L https://install.dojoengine.org | bash
+
+      # Step 3: Install Scarb (Cairo package manager)
+      - name: Install Scarb
+        run: curl --proto '=https' --tlsv1.2 -sSf https://docs.swmansion.com/scarb/install.sh | sh
+
+      # Step 4: Build with Sozo
+      - name: Build with Sozo
+        run: sozo build
+
+      # Step 5: Start Katana devnet in the background
+      - name: Start Katana Devnet
+        run: |
+          nohup katana --dev --dev.no-fee > katana.log 2>&1 &
+        # Ensure Katana has started
+      - name: Wait for Katana to start
+        run: sleep 10
+
+      # Step 6: Inspect using Sozo
+      - name: Inspect with Sozo
+        run: sozo inspect
+
+      # Step 7: Upload Katana logs (for debugging if required)
+      - name: Upload Katana Logs
+        if: always() # Upload logs even if the job fails
+        uses: actions/upload-artifact@v3
+        with:
+          name: katana-logs
+          path: katana.log
