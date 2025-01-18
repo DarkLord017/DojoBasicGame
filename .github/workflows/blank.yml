@@ -1,4 +1,4 @@
-name: CI
+  name: CI
 
 on:
   push:
@@ -12,55 +12,64 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Checkout the repository
-      - name: Checkout code
-        uses: actions/checkout@v4
+      # Step 1: Verify the runner environment
+      - name: Verify runner environment
+        run: |
+          echo "Checking installed tools..."
+          which curl || echo "curl not found"
+          which sh || echo "sh not found"
+          which bash || echo "bash not found"
+          echo "Environment PATH: $PATH"
 
-      # Step 2: Install Rust
+      # Step 2: Install curl if missing
+      - name: Install curl (if not installed)
+        run: sudo apt-get update && sudo apt-get install -y curl
+
+      # Step 3: Install Rust
       - name: Install Rust
         run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
         env:
           CARGO_HOME: $HOME/.cargo
           PATH: $HOME/.cargo/bin:$PATH
 
-      # Step 3: Install Dojo Engine
+      # Step 4: Install Dojo Engine
       - name: Install Dojo Engine
         run: |
           curl -L https://install.dojoengine.org | bash
           echo 'export PATH="$HOME/.dojo/bin:$PATH"' >> $GITHUB_ENV
 
-      # Step 4: Install Scarb (Cairo package manager)
+      # Step 5: Install Scarb (Cairo package manager)
       - name: Install Scarb
         run: curl --proto '=https' --tlsv1.2 -sSf https://docs.swmansion.com/scarb/install.sh | sh
         env:
           PATH: $HOME/.cargo/bin:$PATH
 
-      # Step 5: Build with Sozo
+      # Step 6: Build with Sozo
       - name: Build with Sozo
         run: sozo build
         env:
           PATH: $HOME/.dojo/bin:$PATH
 
-      # Step 6: Start Katana devnet in the background
+      # Step 7: Start Katana devnet in the background
       - name: Start Katana Devnet
         run: |
           nohup katana --dev --dev.no-fee > katana.log 2>&1 &
         env:
           PATH: $HOME/.dojo/bin:$PATH
 
-      # Step 7: Wait for Katana to start
+      # Step 8: Wait for Katana to start
       - name: Wait for Katana to start
         run: sleep 10
 
-      # Step 8: Inspect using Sozo
+      # Step 9: Inspect using Sozo
       - name: Inspect with Sozo
         run: sozo inspect
         env:
           PATH: $HOME/.dojo/bin:$PATH
 
-      # Step 9: Upload Katana logs (for debugging if required)
+      # Step 10: Upload Katana logs (for debugging if required)
       - name: Upload Katana Logs
-        if: always() # Upload logs even if the job fails
+        if: always()
         uses: actions/upload-artifact@v3
         with:
           name: katana-logs
