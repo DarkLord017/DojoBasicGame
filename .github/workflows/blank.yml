@@ -23,67 +23,85 @@ jobs:
           profile: minimal
           override: true
 
-      # Step 3: Install and verify Dojo Engine
-      - name: Install and verify Dojo Engine
+      # Step 3: Install Dojo Engine with detailed debugging
+      - name: Install Dojo Engine
         run: |
-          # Print current directory and PATH
-          pwd
-          echo "Initial PATH: $PATH"
+          # Create temporary directory for installation
+          mkdir -p /tmp/dojo-install
+          cd /tmp/dojo-install
           
-          # Install Dojo with verbose output
-          curl -L https://install.dojoengine.org -o install-dojo.sh
-          cat install-dojo.sh  # Inspect the installer
+          # Download installer with curl and show progress
+          echo "Downloading Dojo installer..."
+          curl -L https://install.dojoengine.org -o install-dojo.sh --progress-bar
+          
+          # Make installer executable
           chmod +x install-dojo.sh
-          ./install-dojo.sh --verbose
           
-          # Verify Dojo installation
-          echo "Checking Dojo installation..."
-          ls -la $HOME/.dojo || echo "~/.dojo not found"
-          ls -la $HOME/.dojo/bin || echo "~/.dojo/bin not found"
+          # Show installer contents
+          echo "Installer contents:"
+          cat install-dojo.sh
           
-          # Add Dojo to PATH and verify
+          # Run installer with bash explicitly and debug output
+          echo "Running installer..."
+          bash -x ./install-dojo.sh
+          
+          # Create Dojo directory if it doesn't exist
+          mkdir -p $HOME/.dojo/bin
+          
+          # Verify installation
+          echo "Verifying installation..."
+          ls -la $HOME/.dojo
+          ls -la $HOME/.dojo/bin
+          
+          # Add to PATH
+          echo "Adding to PATH..."
           export PATH="$HOME/.dojo/bin:$PATH"
-          echo "Updated PATH: $PATH"
+          echo "PATH is now: $PATH"
           
-          # Check if executables exist
-          file $HOME/.dojo/bin/sozo || echo "sozo binary not found"
-          file $HOME/.dojo/bin/katana || echo "katana binary not found"
-          
-          # Try to run sozo directly with full path
-          $HOME/.dojo/bin/sozo --version || echo "Failed to run sozo directly"
+          # Return to project directory
+          cd $GITHUB_WORKSPACE
 
       # Step 4: Install Scarb
       - name: Install Scarb
         run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://docs.swmansion.com/scarb/install.sh | sh
-          echo "$HOME/.scarb/bin" >> $GITHUB_PATH
+          curl --proto '=https' --tlsv1.2 -sSf https://docs.swmansion.com/scarb/install.sh -o install-scarb.sh
+          chmod +x install-scarb.sh
+          ./install-scarb.sh
           export PATH="$HOME/.scarb/bin:$PATH"
 
-      # Step 5: Build with Sozo (with verbose output)
+      # Step 5: Verify installations
+      - name: Verify installations
+        run: |
+          echo "Current directory: $(pwd)"
+          echo "Home directory: $HOME"
+          echo "Dojo directory contents:"
+          ls -la $HOME/.dojo || echo "Dojo directory not found"
+          echo "Dojo bin contents:"
+          ls -la $HOME/.dojo/bin || echo "Dojo bin directory not found"
+          echo "Current PATH: $PATH"
+          echo "Searching for sozo:"
+          find $HOME -name sozo 2>/dev/null || echo "sozo not found in home directory"
+          echo "Searching for katana:"
+          find $HOME -name katana 2>/dev/null || echo "katana not found in home directory"
+
+      # Step 6: Build with Sozo
       - name: Build with Sozo
         run: |
-          echo "Current working directory: $(pwd)"
-          echo "Current PATH: $PATH"
-          echo "Checking sozo location: $(which sozo || echo 'sozo not found')"
-          ls -la $HOME/.dojo/bin/
-          $HOME/.dojo/bin/sozo --version
-          $HOME/.dojo/bin/sozo build --verbose
+          export PATH="$HOME/.dojo/bin:$PATH"
+          if [ -f "$HOME/.dojo/bin/sozo" ]; then
+            echo "Found sozo binary, attempting to build..."
+            $HOME/.dojo/bin/sozo build
+          else
+            echo "Error: sozo binary not found in $HOME/.dojo/bin"
+            exit 1
+          fi
 
-      # Step 6: Start Katana devnet in the background
-      - name: Start Katana Devnet
-        run: |
-          $HOME/.dojo/bin/katana --dev --dev.no-fee > katana.log 2>&1 &
-          sleep 10  # Wait for Katana to start
-
-      # Step 7: Inspect using Sozo
-      - name: Inspect with Sozo
-        run: |
-          $HOME/.dojo/bin/sozo inspect
-
-      # Step 8: Upload Katana logs
-      - name: Upload Katana Logs
+      # Step 7: Upload debug information
+      - name: Upload debug information
         if: always()
         uses: actions/upload-artifact@v3
         with:
-          name: katana-logs
-          path: katana.log
+          name: debug-info
+          path: |
+            /tmp/dojo-install/install-dojo.sh
+            ${{ github.workspace }}/*.log
