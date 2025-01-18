@@ -16,31 +16,49 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Step 2: Install Dojo Engine
-      - name: Install Dojo Engine
-        run: curl -L https://install.dojoengine.org | bash
+      # Step 2: Install Rust
+      - name: Install Rust
+        run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+        env:
+          CARGO_HOME: $HOME/.cargo
+          PATH: $HOME/.cargo/bin:$PATH
 
-      # Step 3: Install Scarb (Cairo package manager)
+      # Step 3: Install Dojo Engine
+      - name: Install Dojo Engine
+        run: |
+          curl -L https://install.dojoengine.org | bash
+          echo 'export PATH="$HOME/.dojo/bin:$PATH"' >> $GITHUB_ENV
+
+      # Step 4: Install Scarb (Cairo package manager)
       - name: Install Scarb
         run: curl --proto '=https' --tlsv1.2 -sSf https://docs.swmansion.com/scarb/install.sh | sh
+        env:
+          PATH: $HOME/.cargo/bin:$PATH
 
-      # Step 4: Build with Sozo
+      # Step 5: Build with Sozo
       - name: Build with Sozo
         run: sozo build
+        env:
+          PATH: $HOME/.dojo/bin:$PATH
 
-      # Step 5: Start Katana devnet in the background
+      # Step 6: Start Katana devnet in the background
       - name: Start Katana Devnet
         run: |
           nohup katana --dev --dev.no-fee > katana.log 2>&1 &
-        # Ensure Katana has started
+        env:
+          PATH: $HOME/.dojo/bin:$PATH
+
+      # Step 7: Wait for Katana to start
       - name: Wait for Katana to start
         run: sleep 10
 
-      # Step 6: Inspect using Sozo
+      # Step 8: Inspect using Sozo
       - name: Inspect with Sozo
         run: sozo inspect
+        env:
+          PATH: $HOME/.dojo/bin:$PATH
 
-      # Step 7: Upload Katana logs (for debugging if required)
+      # Step 9: Upload Katana logs (for debugging if required)
       - name: Upload Katana Logs
         if: always() # Upload logs even if the job fails
         uses: actions/upload-artifact@v3
