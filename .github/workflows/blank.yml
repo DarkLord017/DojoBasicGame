@@ -23,43 +23,36 @@ jobs:
           profile: minimal
           override: true
 
-      # Step 3: Install Dojo Engine with detailed debugging
-      - name: Install Dojo Engine
+      # Step 3: Install Dojo directly from GitHub releases
+      - name: Install Dojo
         run: |
-          # Create temporary directory for installation
-          mkdir -p /tmp/dojo-install
-          cd /tmp/dojo-install
-          
-          # Download installer with curl and show progress
-          echo "Downloading Dojo installer..."
-          curl -L https://install.dojoengine.org -o install-dojo.sh --progress-bar
-          
-          # Make installer executable
-          chmod +x install-dojo.sh
-          
-          # Show installer contents
-          echo "Installer contents:"
-          cat install-dojo.sh
-          
-          # Run installer with bash explicitly and debug output
-          echo "Running installer..."
-          bash -x ./install-dojo.sh
-          
-          # Create Dojo directory if it doesn't exist
+          # Create directories
           mkdir -p $HOME/.dojo/bin
+          cd $HOME/.dojo/bin
           
-          # Verify installation
-          echo "Verifying installation..."
-          ls -la $HOME/.dojo
-          ls -la $HOME/.dojo/bin
+          # Download latest sozo and katana binaries
+          echo "Downloading Dojo binaries..."
+          curl -L https://github.com/dojoengine/dojo/releases/download/v0.5.0/sozo_0_5_0_linux_amd64.tar.gz -o sozo.tar.gz
+          curl -L https://github.com/dojoengine/dojo/releases/download/v0.5.0/katana_0_5_0_linux_amd64.tar.gz -o katana.tar.gz
+          
+          # Extract binaries
+          tar -xzf sozo.tar.gz
+          tar -xzf katana.tar.gz
+          
+          # Make binaries executable
+          chmod +x sozo katana
+          
+          # Verify binaries exist and are executable
+          echo "Verifying binaries..."
+          ls -la sozo katana
           
           # Add to PATH
-          echo "Adding to PATH..."
           export PATH="$HOME/.dojo/bin:$PATH"
           echo "PATH is now: $PATH"
           
-          # Return to project directory
-          cd $GITHUB_WORKSPACE
+          # Test binaries
+          ./sozo --version
+          ./katana --version
 
       # Step 4: Install Scarb
       - name: Install Scarb
@@ -69,39 +62,32 @@ jobs:
           ./install-scarb.sh
           export PATH="$HOME/.scarb/bin:$PATH"
 
-      # Step 5: Verify installations
-      - name: Verify installations
-        run: |
-          echo "Current directory: $(pwd)"
-          echo "Home directory: $HOME"
-          echo "Dojo directory contents:"
-          ls -la $HOME/.dojo || echo "Dojo directory not found"
-          echo "Dojo bin contents:"
-          ls -la $HOME/.dojo/bin || echo "Dojo bin directory not found"
-          echo "Current PATH: $PATH"
-          echo "Searching for sozo:"
-          find $HOME -name sozo 2>/dev/null || echo "sozo not found in home directory"
-          echo "Searching for katana:"
-          find $HOME -name katana 2>/dev/null || echo "katana not found in home directory"
-
-      # Step 6: Build with Sozo
+      # Step 5: Build with Sozo
       - name: Build with Sozo
         run: |
+          cd $GITHUB_WORKSPACE
           export PATH="$HOME/.dojo/bin:$PATH"
-          if [ -f "$HOME/.dojo/bin/sozo" ]; then
-            echo "Found sozo binary, attempting to build..."
-            $HOME/.dojo/bin/sozo build
-          else
-            echo "Error: sozo binary not found in $HOME/.dojo/bin"
-            exit 1
-          fi
+          sozo build
 
-      # Step 7: Upload debug information
-      - name: Upload debug information
+      # Step 6: Start Katana devnet
+      - name: Start Katana Devnet
+        run: |
+          export PATH="$HOME/.dojo/bin:$PATH"
+          katana --dev --dev.no-fee > katana.log 2>&1 &
+          sleep 10  # Wait for Katana to start
+
+      # Step 7: Inspect with Sozo
+      - name: Inspect with Sozo
+        run: |
+          export PATH="$HOME/.dojo/bin:$PATH"
+          sozo inspect
+
+      # Step 8: Upload logs
+      - name: Upload logs
         if: always()
         uses: actions/upload-artifact@v3
         with:
-          name: debug-info
+          name: logs
           path: |
-            /tmp/dojo-install/install-dojo.sh
-            ${{ github.workspace }}/*.log
+            katana.log
+            $HOME/.dojo/bin/*.log
